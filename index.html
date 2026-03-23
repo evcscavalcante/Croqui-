@@ -42,7 +42,7 @@
 <body>
   <div class="wrap">
     <h1>Protótipo independente — UTM, Norte/Leste e cantos da imagem</h1>
-    <p class="desc">Versão com conversão técnica de latitude/longitude para UTM, exibição opcional de Norte/Leste no PNG e carimbo com as coordenadas dos 4 cantos do recorte.</p>
+    <p class="desc">Versão com conversão técnica para UTM, exibindo Norte/Leste no mapa e no PNG com carimbo técnico do recorte.</p>
 
     <div class="layout">
       <div class="panel">
@@ -87,15 +87,11 @@
           <label class="label">Opções do carimbo técnico</label>
           <div class="checkrow"><input type="checkbox" id="showInfoStamp" checked /><label for="showInfoStamp">Mostrar informações técnicas</label></div>
           <div class="checkrow"><input type="checkbox" id="showUtm" checked /><label for="showUtm">Mostrar Norte/Leste (UTM) no PNG</label></div>
-          <div class="checkrow"><input type="checkbox" id="showCorners" checked /><label for="showCorners">Mostrar 4 cantos da imagem</label></div>
-          <div class="checkrow"><input type="checkbox" id="showLatLng" checked /><label for="showLatLng">Mostrar Latitude/Longitude</label></div>
         </div>
 
         <div class="row"><div id="status" class="status">Aguardando captura.</div></div>
 
         <div class="row meta">
-          <div class="meta-card"><strong>Latitude</strong><span id="latValue">—</span></div>
-          <div class="meta-card"><strong>Longitude</strong><span id="lngValue">—</span></div>
           <div class="meta-card"><strong>Norte (UTM)</strong><span id="northingValue">—</span></div>
           <div class="meta-card"><strong>Leste (UTM)</strong><span id="eastingValue">—</span></div>
           <div class="meta-card"><strong>Zona UTM</strong><span id="zoneValue">—</span></div>
@@ -107,7 +103,7 @@
           <button class="good" id="btnExport">Exportar PNG</button>
         </div>
 
-        <p class="hint">Para fins de croqui técnico, Norte/Leste aqui é calculado em UTM a partir das coordenadas geográficas do mapa/recorte visível.</p>
+        <p class="hint">Para fins de croqui técnico, as coordenadas exibidas usam apenas Norte/Leste em UTM com base no recorte visível.</p>
       </div>
 
       <div class="viewer">
@@ -122,7 +118,7 @@
           <canvas id="overlay"></canvas>
         </div>
 
-        <p class="hint">O carimbo pode incluir Norte/Leste do ponto capturado e também dos 4 cantos do recorte exportado.</p>
+        <p class="hint">As coordenadas dos quatro cantos aparecem diretamente sobre o mapa e também na exportação PNG.</p>
       </div>
     </div>
   </div>
@@ -139,8 +135,6 @@
     const ctx = overlay.getContext('2d');
 
     const statusEl = document.getElementById('status');
-    const latValue = document.getElementById('latValue');
-    const lngValue = document.getElementById('lngValue');
     const northingValue = document.getElementById('northingValue');
     const eastingValue = document.getElementById('eastingValue');
     const zoneValue = document.getElementById('zoneValue');
@@ -151,8 +145,6 @@
     const notes = document.getElementById('notes');
     const scaleMeters = document.getElementById('scaleMeters');
     const showUtm = document.getElementById('showUtm');
-    const showCorners = document.getElementById('showCorners');
-    const showLatLng = document.getElementById('showLatLng');
     const showInfoStamp = document.getElementById('showInfoStamp');
     const mapBaseLabel = 'Satélite (Esri World Imagery)';
 
@@ -198,8 +190,6 @@
     notes.addEventListener('input', redraw);
     scaleMeters.addEventListener('change', redraw);
     showUtm.addEventListener('change', redraw);
-    showCorners.addEventListener('change', redraw);
-    showLatLng.addEventListener('change', redraw);
     showInfoStamp.addEventListener('change', redraw);
 
     function toRadians(deg){ return deg * Math.PI / 180; }
@@ -254,8 +244,6 @@
 
     function updateLocationUI(){
       if(!state.capturedLocation) return;
-      latValue.textContent = state.capturedLocation.lat.toFixed(6);
-      lngValue.textContent = state.capturedLocation.lng.toFixed(6);
       accValue.textContent = Math.round(state.capturedLocation.accuracy) + ' m';
 
       const utm = latLngToUTM(state.capturedLocation.lat, state.capturedLocation.lng);
@@ -440,14 +428,68 @@
       return result;
     }
 
+    function getCornerLines(corner){
+      const lines = [];
+      lines.push(`N ${fmt(corner.utm.northing)}`);
+      lines.push(`E ${fmt(corner.utm.easting)}`);
+      return lines;
+    }
+
+    function drawCornerBadge(targetCtx, title, lines, anchor){
+      const fontTitle = 'bold 11px Arial';
+      const fontBody = '10px Arial';
+      const lineHeight = 12;
+      const paddingX = 8;
+      const paddingY = 6;
+      const margin = 12;
+      const allLines = [title, ...lines];
+
+      targetCtx.save();
+      let width = 0;
+      allLines.forEach((line, index)=>{
+        targetCtx.font = index === 0 ? fontTitle : fontBody;
+        width = Math.max(width, targetCtx.measureText(line).width);
+      });
+
+      const boxWidth = width + paddingX * 2;
+      const boxHeight = allLines.length * lineHeight + paddingY * 2;
+      let x = margin;
+      let y = margin;
+
+      if(anchor.includes('right')) x = overlay.width - boxWidth - margin;
+      if(anchor.includes('bottom')) y = overlay.height - boxHeight - margin;
+
+      roundRectOnContext(targetCtx, x, y, boxWidth, boxHeight, 10);
+      targetCtx.fillStyle = 'rgba(10,16,32,0.62)';
+      targetCtx.fill();
+      targetCtx.lineWidth = 1;
+      targetCtx.strokeStyle = 'rgba(255,255,255,0.16)';
+      targetCtx.stroke();
+
+      allLines.forEach((line, index)=>{
+        targetCtx.font = index === 0 ? fontTitle : fontBody;
+        targetCtx.fillStyle = index === 0 ? '#fff5d6' : '#ffffff';
+        targetCtx.shadowColor = 'rgba(0,0,0,0.72)';
+        targetCtx.shadowBlur = 0;
+        targetCtx.shadowOffsetX = 1;
+        targetCtx.shadowOffsetY = 1;
+        targetCtx.fillText(line, x + paddingX, y + paddingY + 10 + index * lineHeight);
+      });
+      targetCtx.restore();
+    }
+
+    function drawCornerCoordinates(){
+      const corners = getCornerData();
+      drawCornerBadge(ctx, 'NO', getCornerLines(corners.NO), 'top-left');
+      drawCornerBadge(ctx, 'NE', getCornerLines(corners.NE), 'top-right');
+      drawCornerBadge(ctx, 'SO', getCornerLines(corners.SO), 'bottom-left');
+      drawCornerBadge(ctx, 'SE', getCornerLines(corners.SE), 'bottom-right');
+    }
+
     function buildStampLines(){
       const lines = [];
       if(state.capturedLocation){
         const utm = latLngToUTM(state.capturedLocation.lat, state.capturedLocation.lng);
-        if(showLatLng.checked){
-          lines.push(`Lat: ${state.capturedLocation.lat.toFixed(6)}`);
-          lines.push(`Lng: ${state.capturedLocation.lng.toFixed(6)}`);
-        }
         if(showUtm.checked){
           lines.push(`Norte: ${fmt(utm.northing)} m`);
           lines.push(`Leste: ${fmt(utm.easting)} m`);
@@ -462,19 +504,6 @@
       lines.push(`Zoom: ${state.map.getZoom()}`);
       lines.push(`Base: ${mapBaseLabel}`);
       lines.push('Orientação: norte para cima / leste para a direita');
-
-      if(showCorners.checked){
-        const corners = getCornerData();
-        for(const key of ['NO','NE','SO','SE']){
-          const c = corners[key];
-          if(showLatLng.checked){
-            lines.push(`${key} Lat/Lng: ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`);
-          }
-          if(showUtm.checked){
-            lines.push(`${key} N/L: ${fmt(c.utm.northing)} / ${fmt(c.utm.easting)}`);
-          }
-        }
-      }
 
       const note = notes.value.trim();
       if(note) lines.push(`Obs.: ${note}`);
@@ -543,6 +572,7 @@
         if(item.type==='line') drawLine(item,false);
         if(item.type==='arrow') drawLine(item,true);
       }
+      drawCornerCoordinates();
       drawOrientation();
       drawScaleBar();
       drawInfoStamp();
