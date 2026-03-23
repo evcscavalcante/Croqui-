@@ -64,16 +64,6 @@
         </div>
 
         <div class="row">
-          <label class="label" for="scaleMeters">Régua visual</label>
-          <select id="scaleMeters">
-            <option value="2">60 px = 2 m</option>
-            <option value="5" selected>60 px = 5 m</option>
-            <option value="10">60 px = 10 m</option>
-            <option value="20">60 px = 20 m</option>
-          </select>
-        </div>
-
-        <div class="row">
           <label class="label" for="pointLabel">Legenda do ponto</label>
           <input id="pointLabel" type="text" value="Ponto de coleta" />
         </div>
@@ -143,7 +133,6 @@
     const zoomLabel = document.getElementById('zoomLabel');
     const pointLabel = document.getElementById('pointLabel');
     const notes = document.getElementById('notes');
-    const scaleMeters = document.getElementById('scaleMeters');
     const showUtm = document.getElementById('showUtm');
     const showInfoStamp = document.getElementById('showInfoStamp');
     const mapBaseLabel = 'Satélite (Esri World Imagery)';
@@ -188,7 +177,6 @@
       redraw();
     });
     notes.addEventListener('input', redraw);
-    scaleMeters.addEventListener('change', redraw);
     showUtm.addEventListener('change', redraw);
     showInfoStamp.addEventListener('change', redraw);
 
@@ -398,15 +386,6 @@
       ctx.restore();
     }
 
-    function drawScaleBar(){
-      const meters=Number(scaleMeters.value), px=60, x=24, y=overlay.height-24;
-      ctx.save();
-      ctx.strokeStyle='#ffffff'; ctx.lineWidth=4;
-      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+px,y); ctx.moveTo(x,y-8); ctx.lineTo(x,y+8); ctx.moveTo(x+px,y-8); ctx.lineTo(x+px,y+8); ctx.stroke();
-      ctx.font='bold 16px Arial'; ctx.fillStyle='#ffffff'; ctx.fillText(`60 px = ${meters} m`,x,y-12);
-      ctx.restore();
-    }
-
     function roundRect(x,y,w,h,r){ roundRectOnContext(ctx,x,y,w,h,r); }
 
     function getCornerData(){
@@ -551,7 +530,7 @@
         if(current) wrapped.push(current);
       }
 
-      const x=20, y=32;
+      const x=20, y=92;
       ctx.shadowColor='rgba(0,0,0,0.92)';
       ctx.shadowBlur=0;
       ctx.shadowOffsetX=1;
@@ -574,7 +553,6 @@
       }
       drawCornerCoordinates();
       drawOrientation();
-      drawScaleBar();
       drawInfoStamp();
     }
 
