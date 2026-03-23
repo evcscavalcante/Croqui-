@@ -438,8 +438,8 @@
       if(!showInfoStamp.checked) return;
       const lines = buildStampLines();
       ctx.save();
-      ctx.font='14px Arial';
-      const padding=10, lineHeight=18, boxWidth=Math.min(540, overlay.width-40), wrapped=[];
+      ctx.font='11px Arial';
+      const padding=10, lineHeight=15, boxWidth=Math.min(540, overlay.width-40), wrapped=[];
 
       for(const line of lines){
         const words=line.split(' ');
@@ -454,15 +454,9 @@
         if(current) wrapped.push(current);
       }
 
-      const x=20, y=20, h=wrapped.length*lineHeight+padding*2;
-      ctx.fillStyle='rgba(7,12,24,0.68)';
-      ctx.strokeStyle='rgba(255,255,255,0.22)';
-      ctx.lineWidth=1;
-      roundRect(x,y,boxWidth,h,10);
-      ctx.fill(); ctx.stroke();
-
+      const x=20, y=20;
       ctx.fillStyle='#ffffff';
-      wrapped.forEach((line,idx)=> ctx.fillText(line, x+padding, y+padding+14+idx*lineHeight));
+      wrapped.forEach((line,idx)=> ctx.fillText(line, x+padding, y+padding+12+idx*lineHeight));
       ctx.restore();
     }
 
