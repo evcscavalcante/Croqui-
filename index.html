@@ -53,12 +53,8 @@
         </div>
 
         <div class="row">
-          <label class="label" for="tileProvider">Base do mapa</label>
-          <select id="tileProvider">
-            <option value="osm" selected>Mapa padrão (OpenStreetMap)</option>
-            <option value="sat">Satélite (Esri World Imagery)</option>
-            <option value="hot">Mapa detalhado (HOT)</option>
-          </select>
+          <label class="label">Base do mapa</label>
+          <div class="status ok">Satélite (Esri World Imagery)</div>
         </div>
 
         <div class="row">
@@ -93,6 +89,7 @@
           <div class="checkrow"><input type="checkbox" id="showUtm" checked /><label for="showUtm">Mostrar Norte/Leste (UTM) no PNG</label></div>
           <div class="checkrow"><input type="checkbox" id="showCorners" checked /><label for="showCorners">Mostrar 4 cantos da imagem</label></div>
           <div class="checkrow"><input type="checkbox" id="showLatLng" checked /><label for="showLatLng">Mostrar Latitude/Longitude</label></div>
+          <div class="checkrow"><input type="checkbox" id="showAccuracyInPng" checked /><label for="showAccuracyInPng">Mostrar raio de precisão no PNG</label></div>
         </div>
 
         <div class="row"><div id="status" class="status">Aguardando captura.</div></div>
@@ -151,7 +148,6 @@
     const accValue = document.getElementById('accValue');
     const zoomInput = document.getElementById('zoomInput');
     const zoomLabel = document.getElementById('zoomLabel');
-    const tileProvider = document.getElementById('tileProvider');
     const pointLabel = document.getElementById('pointLabel');
     const notes = document.getElementById('notes');
     const scaleMeters = document.getElementById('scaleMeters');
@@ -159,6 +155,8 @@
     const showCorners = document.getElementById('showCorners');
     const showLatLng = document.getElementById('showLatLng');
     const showInfoStamp = document.getElementById('showInfoStamp');
+    const showAccuracyInPng = document.getElementById('showAccuracyInPng');
+    const mapBaseLabel = 'Satélite (Esri World Imagery)';
 
     function setStatus(text, type=''){ statusEl.textContent=text; statusEl.className='status'+(type?' '+type:''); }
     function formatDate(date){ return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'medium'}).format(date); }
@@ -170,14 +168,12 @@
       redraw();
     }
 
-    function tileConfig(kind){
-      if(kind==='hot') return {url:'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',options:{maxZoom:20, attribution:'&copy; OpenStreetMap contributors, HOT'}};
-      if(kind==='sat') return {url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',options:{maxZoom:21, attribution:'Tiles &copy; Esri'}};
-      return {url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',options:{maxZoom:20, attribution:'&copy; OpenStreetMap contributors'}};
+    function tileConfig(){
+      return {url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',options:{maxZoom:21, attribution:'Tiles &copy; Esri'}};
     }
 
-    function applyTileLayer(kind){
-      const conf = tileConfig(kind);
+    function applyTileLayer(){
+      const conf = tileConfig();
       if(state.tileLayer) state.map.removeLayer(state.tileLayer);
       state.tileLayer = L.tileLayer(conf.url, conf.options).addTo(state.map);
       setStatus('Base do mapa atualizada.','ok');
@@ -185,7 +181,7 @@
 
     function initMap(){
       state.map = L.map('map',{zoomControl:true, attributionControl:true}).setView([-19.9191,-43.9386], Number(zoomInput.value));
-      applyTileLayer(tileProvider.value);
+      applyTileLayer();
       state.map.on('move zoom resize', ()=>{
         syncOverlaySize();
         zoomInput.value = state.map.getZoom();
@@ -196,14 +192,18 @@
       setTimeout(syncOverlaySize, 300);
     }
 
-    tileProvider.addEventListener('change',()=>applyTileLayer(tileProvider.value));
     zoomInput.addEventListener('input',()=>{ zoomLabel.textContent=zoomInput.value; state.map.setZoom(Number(zoomInput.value)); });
+    pointLabel.addEventListener('input',()=>{
+      updateCaptureMarkerLabel();
+      redraw();
+    });
     notes.addEventListener('input', redraw);
     scaleMeters.addEventListener('change', redraw);
     showUtm.addEventListener('change', redraw);
     showCorners.addEventListener('change', redraw);
     showLatLng.addEventListener('change', redraw);
     showInfoStamp.addEventListener('change', redraw);
+    showAccuracyInPng.addEventListener('change', redraw);
 
     function toRadians(deg){ return deg * Math.PI / 180; }
 
@@ -267,9 +267,24 @@
       zoneValue.textContent = `${utm.zoneNumber}${utm.hemisphere}`;
     }
 
+    function getCapturedPointLabel(){
+      return pointLabel.value.trim() || 'Ponto capturado';
+    }
+
+    function updateCaptureMarkerLabel(){
+      if(!state.captureMarker) return;
+      const label = getCapturedPointLabel();
+      if(!state.captureMarker.getTooltip()){
+        state.captureMarker.bindTooltip(label,{permanent:true,direction:'right',offset:[14,-10],className:'capture-tooltip'});
+        return;
+      }
+      state.captureMarker.setTooltipContent(label);
+    }
+
     function setCaptureLayers(lat,lng,accuracy){
       if(state.captureMarker){ state.captureMarker.setLatLng([lat,lng]); }
-      else { state.captureMarker = L.circleMarker([lat,lng],{radius:8,color:'#ffffff',weight:2,fillColor:'#ff4d4f',fillOpacity:1}).addTo(state.map); }
+      else { state.captureMarker = L.circleMarker([lat,lng],{radius:9,color:'#fff5d6',weight:3,fillColor:'#ff9f1c',fillOpacity:1}).addTo(state.map); }
+      updateCaptureMarkerLabel();
 
       if(state.accuracyCircle){ state.accuracyCircle.setLatLng([lat,lng]); state.accuracyCircle.setRadius(accuracy); }
       else { state.accuracyCircle = L.circle([lat,lng],{radius:accuracy,color:'#7ec8ff',weight:2,fillColor:'#7ec8ff',fillOpacity:0.12}).addTo(state.map); }
@@ -309,25 +324,70 @@
       return { x:(clientX-rect.left)*scaleX, y:(clientY-rect.top)*scaleY };
     }
 
+    function drawTextBadge(targetCtx, text, x, y, options = {}){
+      const paddingX = options.paddingX ?? 10;
+      const paddingY = options.paddingY ?? 6;
+      const radius = options.radius ?? 8;
+      const font = options.font ?? 'bold 16px Arial';
+      const background = options.background ?? 'rgba(10,16,32,0.72)';
+      const fill = options.fill ?? '#ffffff';
+      const stroke = options.stroke ?? 'rgba(0,0,0,0.55)';
+      const lineWidth = options.lineWidth ?? 4;
+
+      targetCtx.save();
+      targetCtx.font = font;
+      const metrics = targetCtx.measureText(text);
+      const width = metrics.width + paddingX * 2;
+      const height = 18 + paddingY * 2;
+      roundRectOnContext(targetCtx, x, y - height + 4, width, height, radius);
+      targetCtx.fillStyle = background;
+      targetCtx.fill();
+      targetCtx.lineWidth = 1;
+      targetCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+      targetCtx.stroke();
+      targetCtx.lineWidth = lineWidth;
+      targetCtx.strokeStyle = stroke;
+      targetCtx.fillStyle = fill;
+      targetCtx.strokeText(text, x + paddingX, y);
+      targetCtx.fillText(text, x + paddingX, y);
+      targetCtx.restore();
+    }
+
+    function roundRectOnContext(targetCtx,x,y,w,h,r){
+      targetCtx.beginPath();
+      targetCtx.moveTo(x+r,y); targetCtx.lineTo(x+w-r,y); targetCtx.quadraticCurveTo(x+w,y,x+w,y+r);
+      targetCtx.lineTo(x+w,y+h-r); targetCtx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+      targetCtx.lineTo(x+r,y+h); targetCtx.quadraticCurveTo(x,y+h,x,y+h-r);
+      targetCtx.lineTo(x,y+r); targetCtx.quadraticCurveTo(x,y,x+r,y);
+      targetCtx.closePath();
+    }
+
     function drawPoint(item){
       ctx.save();
-      ctx.beginPath(); ctx.arc(item.x,item.y,8,0,Math.PI*2); ctx.fillStyle='#ff4d4f'; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='#ffffff'; ctx.stroke();
-      ctx.font='bold 18px Arial'; ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=4; ctx.fillStyle='#ffffff';
-      ctx.strokeText(item.label,item.x+12,item.y-12); ctx.fillText(item.label,item.x+12,item.y-12);
+      ctx.beginPath(); ctx.arc(item.x,item.y,10,0,Math.PI*2); ctx.fillStyle='#cf2f2f'; ctx.fill(); ctx.lineWidth=3; ctx.strokeStyle='#ffffff'; ctx.stroke();
       ctx.restore();
+      drawTextBadge(ctx, item.label, item.x + 12, item.y - 12, { font:'bold 18px Arial', radius:10 });
     }
 
     function drawLine(item,withArrow){
       ctx.save();
-      ctx.strokeStyle = withArrow ? '#ffd166' : '#5ec8ff';
-      ctx.lineWidth=4;
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      ctx.lineWidth = withArrow ? 8 : 7;
+      ctx.beginPath(); ctx.moveTo(item.x1,item.y1); ctx.lineTo(item.x2,item.y2); ctx.stroke();
+      ctx.strokeStyle = withArrow ? '#ffd166' : '#4fd1ff';
+      ctx.lineWidth = withArrow ? 5 : 4;
       ctx.beginPath(); ctx.moveTo(item.x1,item.y1); ctx.lineTo(item.x2,item.y2); ctx.stroke();
       if(withArrow){
-        const angle=Math.atan2(item.y2-item.y1,item.x2-item.x1), head=18;
+        const angle=Math.atan2(item.y2-item.y1,item.x2-item.x1), head=20;
         ctx.beginPath();
         ctx.moveTo(item.x2,item.y2);
         ctx.lineTo(item.x2-head*Math.cos(angle-Math.PI/6), item.y2-head*Math.sin(angle-Math.PI/6));
         ctx.lineTo(item.x2-head*Math.cos(angle+Math.PI/6), item.y2-head*Math.sin(angle+Math.PI/6));
+        ctx.closePath(); ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(item.x2,item.y2);
+        ctx.lineTo(item.x2-(head-4)*Math.cos(angle-Math.PI/6), item.y2-(head-4)*Math.sin(angle-Math.PI/6));
+        ctx.lineTo(item.x2-(head-4)*Math.cos(angle+Math.PI/6), item.y2-(head-4)*Math.sin(angle+Math.PI/6));
         ctx.closePath(); ctx.fillStyle='#ffd166'; ctx.fill();
       }
       ctx.restore();
@@ -365,14 +425,7 @@
       ctx.restore();
     }
 
-    function roundRect(x,y,w,h,r){
-      ctx.beginPath();
-      ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-      ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-      ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-      ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
-      ctx.closePath();
-    }
+    function roundRect(x,y,w,h,r){ roundRectOnContext(ctx,x,y,w,h,r); }
 
     function getCornerData(){
       const bounds = state.map.getBounds();
@@ -413,7 +466,7 @@
       }
 
       lines.push(`Zoom: ${state.map.getZoom()}`);
-      lines.push(`Base: ${tileProvider.options[tileProvider.selectedIndex].text}`);
+      lines.push(`Base: ${mapBaseLabel}`);
       lines.push('Orientação: norte para cima / leste para a direita');
 
       if(showCorners.checked){
@@ -432,6 +485,40 @@
       const note = notes.value.trim();
       if(note) lines.push(`Obs.: ${note}`);
       return lines;
+    }
+
+    function drawCapturedLocationOnContext(targetCtx){
+      if(!state.capturedLocation) return;
+
+      const latLng = L.latLng(state.capturedLocation.lat, state.capturedLocation.lng);
+      const center = state.map.latLngToContainerPoint(latLng);
+      const nextPointLatLng = state.map.containerPointToLatLng(L.point(center.x + 1, center.y));
+      const metersPerPixel = state.map.distance(latLng, nextPointLatLng) || 1;
+      const radiusPx = state.capturedLocation.accuracy / metersPerPixel;
+      const capturedLabel = getCapturedPointLabel();
+
+      targetCtx.save();
+
+      if(showAccuracyInPng.checked){
+        targetCtx.beginPath();
+        targetCtx.arc(center.x, center.y, radiusPx, 0, Math.PI * 2);
+        targetCtx.fillStyle = 'rgba(126, 200, 255, 0.12)';
+        targetCtx.fill();
+        targetCtx.lineWidth = 2;
+        targetCtx.strokeStyle = '#7ec8ff';
+        targetCtx.stroke();
+      }
+
+      targetCtx.beginPath();
+      targetCtx.arc(center.x, center.y, 10, 0, Math.PI * 2);
+      targetCtx.fillStyle = '#ff9f1c';
+      targetCtx.fill();
+      targetCtx.lineWidth = 3;
+      targetCtx.strokeStyle = '#fff5d6';
+      targetCtx.stroke();
+
+      targetCtx.restore();
+      drawTextBadge(targetCtx, capturedLabel, center.x + 16, center.y - 14, { fill:'#fff5d6', background:'rgba(10,16,32,0.78)' });
     }
 
     function drawInfoStamp(){
@@ -455,6 +542,13 @@
       }
 
       const x=20, y=20;
+      const boxHeight = wrapped.length * lineHeight + padding * 2 + 4;
+      roundRect(x, y, boxWidth, boxHeight, 12);
+      ctx.fillStyle='rgba(10,16,32,0.76)';
+      ctx.fill();
+      ctx.lineWidth=1;
+      ctx.strokeStyle='rgba(255,255,255,0.18)';
+      ctx.stroke();
       ctx.fillStyle='#ffffff';
       wrapped.forEach((line,idx)=> ctx.fillText(line, x+padding, y+padding+12+idx*lineHeight));
       ctx.restore();
@@ -519,6 +613,7 @@
         });
 
         await Promise.all(tilePromises);
+        drawCapturedLocationOnContext(ectx);
         ectx.drawImage(overlay,0,0);
 
         const link=document.createElement('a');
