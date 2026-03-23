@@ -89,7 +89,6 @@
           <div class="checkrow"><input type="checkbox" id="showUtm" checked /><label for="showUtm">Mostrar Norte/Leste (UTM) no PNG</label></div>
           <div class="checkrow"><input type="checkbox" id="showCorners" checked /><label for="showCorners">Mostrar 4 cantos da imagem</label></div>
           <div class="checkrow"><input type="checkbox" id="showLatLng" checked /><label for="showLatLng">Mostrar Latitude/Longitude</label></div>
-          <div class="checkrow"><input type="checkbox" id="showAccuracyInPng" checked /><label for="showAccuracyInPng">Mostrar raio de precisão no PNG</label></div>
         </div>
 
         <div class="row"><div id="status" class="status">Aguardando captura.</div></div>
@@ -132,7 +131,7 @@
   <script>
     const state = {
       map:null, tileLayer:null, tool:'point', drawings:[], pendingStart:null,
-      capturedLocation:null, captureMarker:null, accuracyCircle:null
+      capturedLocation:null, captureMarker:null
     };
 
     const overlay = document.getElementById('overlay');
@@ -155,7 +154,6 @@
     const showCorners = document.getElementById('showCorners');
     const showLatLng = document.getElementById('showLatLng');
     const showInfoStamp = document.getElementById('showInfoStamp');
-    const showAccuracyInPng = document.getElementById('showAccuracyInPng');
     const mapBaseLabel = 'Satélite (Esri World Imagery)';
 
     function setStatus(text, type=''){ statusEl.textContent=text; statusEl.className='status'+(type?' '+type:''); }
@@ -203,7 +201,6 @@
     showCorners.addEventListener('change', redraw);
     showLatLng.addEventListener('change', redraw);
     showInfoStamp.addEventListener('change', redraw);
-    showAccuracyInPng.addEventListener('change', redraw);
 
     function toRadians(deg){ return deg * Math.PI / 180; }
 
@@ -281,13 +278,10 @@
       state.captureMarker.setTooltipContent(label);
     }
 
-    function setCaptureLayers(lat,lng,accuracy){
+    function setCaptureLayers(lat,lng){
       if(state.captureMarker){ state.captureMarker.setLatLng([lat,lng]); }
       else { state.captureMarker = L.circleMarker([lat,lng],{radius:9,color:'#fff5d6',weight:3,fillColor:'#ff9f1c',fillOpacity:1}).addTo(state.map); }
       updateCaptureMarkerLabel();
-
-      if(state.accuracyCircle){ state.accuracyCircle.setLatLng([lat,lng]); state.accuracyCircle.setRadius(accuracy); }
-      else { state.accuracyCircle = L.circle([lat,lng],{radius:accuracy,color:'#7ec8ff',weight:2,fillColor:'#7ec8ff',fillOpacity:0.12}).addTo(state.map); }
     }
 
     document.getElementById('btnLocate').addEventListener('click',()=>{
@@ -298,9 +292,9 @@
         state.capturedLocation = { lat, lng, accuracy, capturedAt:new Date() };
         updateLocationUI();
         state.map.setView([lat,lng], Number(zoomInput.value));
-        setCaptureLayers(lat,lng,accuracy);
+        setCaptureLayers(lat,lng);
         redraw();
-        setStatus('Localização capturada com ponto e raio de precisão.','ok');
+        setStatus('Localização capturada com ponto marcado.','ok');
       }, (error)=> setStatus('Falha ao capturar localização: '+error.message,'danger'), {enableHighAccuracy:true, timeout:15000, maximumAge:0});
     });
 
@@ -492,22 +486,9 @@
 
       const latLng = L.latLng(state.capturedLocation.lat, state.capturedLocation.lng);
       const center = state.map.latLngToContainerPoint(latLng);
-      const nextPointLatLng = state.map.containerPointToLatLng(L.point(center.x + 1, center.y));
-      const metersPerPixel = state.map.distance(latLng, nextPointLatLng) || 1;
-      const radiusPx = state.capturedLocation.accuracy / metersPerPixel;
       const capturedLabel = getCapturedPointLabel();
 
       targetCtx.save();
-
-      if(showAccuracyInPng.checked){
-        targetCtx.beginPath();
-        targetCtx.arc(center.x, center.y, radiusPx, 0, Math.PI * 2);
-        targetCtx.fillStyle = 'rgba(126, 200, 255, 0.12)';
-        targetCtx.fill();
-        targetCtx.lineWidth = 2;
-        targetCtx.strokeStyle = '#7ec8ff';
-        targetCtx.stroke();
-      }
 
       targetCtx.beginPath();
       targetCtx.arc(center.x, center.y, 10, 0, Math.PI * 2);
