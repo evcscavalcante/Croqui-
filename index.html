@@ -169,6 +169,7 @@
       });
       syncOverlaySize();
       setTimeout(syncOverlaySize, 300);
+      requestLocation(true);
     }
 
     zoomInput.addEventListener('input',()=>{ zoomLabel.textContent=zoomInput.value; state.map.setZoom(Number(zoomInput.value)); });
@@ -260,19 +261,37 @@
       updateCaptureMarkerLabel();
     }
 
-    document.getElementById('btnLocate').addEventListener('click',()=>{
-      if(!navigator.geolocation){ setStatus('Geolocalização não suportada neste navegador.','danger'); return; }
-      setStatus('Capturando localização...','warn');
+    function requestLocation(isAutomatic = false){
+      if(!navigator.geolocation){
+        if(isAutomatic){
+          setStatus('Geolocalização indisponível. Mantendo a coordenada inicial.','warn');
+          return;
+        }
+        setStatus('Geolocalização não suportada neste navegador.','danger');
+        return;
+      }
+
+      setStatus(isAutomatic ? 'Buscando localização real automaticamente...' : 'Capturando localização...','warn');
       navigator.geolocation.getCurrentPosition((position)=>{
-        const lat = position.coords.latitude, lng = position.coords.longitude, accuracy = position.coords.accuracy;
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
         state.capturedLocation = { lat, lng, accuracy, capturedAt:new Date() };
         updateLocationUI();
         state.map.setView([lat,lng], Number(zoomInput.value));
         setCaptureLayers(lat,lng);
         redraw();
-        setStatus('Localização capturada com ponto marcado.','ok');
-      }, (error)=> setStatus('Falha ao capturar localização: '+error.message,'danger'), {enableHighAccuracy:true, timeout:15000, maximumAge:0});
-    });
+        setStatus(isAutomatic ? 'Localização real carregada automaticamente.' : 'Localização capturada com ponto marcado.','ok');
+      }, (error)=>{
+        if(isAutomatic){
+          setStatus('Não foi possível obter a localização real automaticamente. Mantendo a coordenada inicial.','warn');
+          return;
+        }
+        setStatus('Falha ao capturar localização: '+error.message,'danger');
+      }, {enableHighAccuracy:true, timeout:15000, maximumAge:0});
+    }
+
+    document.getElementById('btnLocate').addEventListener('click',()=>requestLocation(false));
 
     document.getElementById('btnCentralizar').addEventListener('click',()=>{
       if(!state.capturedLocation){ setStatus('Capture a localização primeiro.','warn'); return; }
