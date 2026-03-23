@@ -525,8 +525,8 @@
       if(!showInfoStamp.checked) return;
       const lines = buildStampLines();
       ctx.save();
-      ctx.font='11px Arial';
-      const padding=10, lineHeight=15, boxWidth=Math.min(540, overlay.width-40), wrapped=[];
+      ctx.font='bold 11px Arial';
+      const padding=0, lineHeight=14, boxWidth=Math.min(540, overlay.width-40), wrapped=[];
 
       for(const line of lines){
         const words=line.split(' ');
@@ -541,16 +541,15 @@
         if(current) wrapped.push(current);
       }
 
-      const x=20, y=20;
-      const boxHeight = wrapped.length * lineHeight + padding * 2 + 4;
-      roundRect(x, y, boxWidth, boxHeight, 12);
-      ctx.fillStyle='rgba(10,16,32,0.76)';
-      ctx.fill();
-      ctx.lineWidth=1;
-      ctx.strokeStyle='rgba(255,255,255,0.18)';
-      ctx.stroke();
+      const x=20, y=32;
+      ctx.lineWidth=3;
+      ctx.strokeStyle='rgba(0,0,0,0.72)';
       ctx.fillStyle='#ffffff';
-      wrapped.forEach((line,idx)=> ctx.fillText(line, x+padding, y+padding+12+idx*lineHeight));
+      wrapped.forEach((line,idx)=>{
+        const lineY = y + idx * lineHeight;
+        ctx.strokeText(line, x, lineY);
+        ctx.fillText(line, x, lineY);
+      });
       ctx.restore();
     }
 
